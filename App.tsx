@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback } from 'react';
 import Header from './components/Header';
-import { GeminiService } from './services/geminiService';
+import { RemoveBGService } from './services/removeBgService';
 import { ProcessingState, ImageData } from './types';
 
 const App: React.FC = () => {
@@ -36,11 +36,11 @@ const App: React.FC = () => {
   const processImage = useCallback(async () => {
     if (!image.original) return;
 
-    setStatus({ isProcessing: true, status: 'Removendo fundo via Remove.bg...', error: null });
+    setStatus({ isProcessing: true, status: 'Processando imagem...', error: null });
 
     try {
-      const api = new GeminiService();
-      const result = await api.removeBackground(image.original, image.mimeType);
+      const api = new RemoveBGService();
+      const result = await api.removeBackground(image.original);
 
       setImage(prev => ({ ...prev, processed: result }));
       setStatus({ isProcessing: false, status: 'Pronto!', error: null });
@@ -49,9 +49,7 @@ const App: React.FC = () => {
       setStatus({ 
         isProcessing: false, 
         status: '', 
-        error: err.message.includes("403") 
-          ? "Chave de API Inválida. Verifique se colou a chave correta nas variáveis de ambiente da Vercel como API_KEY." 
-          : "Erro na API: " + err.message
+        error: err.message
       });
     }
   }, [image]);
@@ -60,7 +58,7 @@ const App: React.FC = () => {
     if (!image.processed) return;
     const link = document.createElement('a');
     link.href = image.processed;
-    link.download = 'imagem-sem-fundo.png';
+    link.download = 'removido-removebg.png';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -77,7 +75,7 @@ const App: React.FC = () => {
             <span className="text-indigo-500 font-black">PROFISSIONAL</span>
           </h1>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            Alta precisão para fotos de produtos, pessoas e objetos usando sua chave do <strong>remove.bg</strong>.
+            Qualidade industrial usando sua API Key do <strong>remove.bg</strong>.
           </p>
         </section>
 
@@ -102,7 +100,7 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 <div className="relative flex-1 flex flex-col">
-                  <div className="flex-1 relative bg-[url('https://www.transparenttextures.com/patterns/checkerboard.png')] bg-repeat rounded-xl overflow-hidden shadow-inner border border-white/5">
+                  <div className="flex-1 relative bg-[url('https://www.transparenttextures.com/patterns/checkerboard.png')] bg-repeat rounded-xl overflow-hidden shadow-inner border border-white/5 bg-slate-800/50">
                     <img 
                       src={image.processed || image.original} 
                       alt="Preview" 
@@ -148,17 +146,17 @@ const App: React.FC = () => {
 
               <div className="flex-1 space-y-6">
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                  <p className="text-sm text-slate-400 mb-2 font-medium uppercase tracking-wider">Status da API</p>
+                  <p className="text-sm text-slate-400 mb-2 font-medium uppercase tracking-wider">Status</p>
                   <div className="flex items-center gap-2 text-green-400 font-bold">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-ping"></div>
-                    Conectado ao Remove.bg
+                    API Pronta
                   </div>
                 </div>
 
                 <button
                   disabled={!image.processed || status.isProcessing}
                   onClick={downloadImage}
-                  className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-20 text-white font-black text-lg rounded-2xl flex items-center justify-center gap-3 transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-900/20"
+                  className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-20 text-white font-black text-lg rounded-2xl flex items-center justify-center gap-3 transition-all transform hover:scale-[1.02] shadow-lg shadow-emerald-900/20"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0L8 8m4-4v12" />
@@ -168,13 +166,9 @@ const App: React.FC = () => {
 
                 {status.error && (
                   <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-2xl text-sm leading-relaxed">
-                    <strong>Erro:</strong> {status.error}
+                    <strong>Atenção:</strong> {status.error}
                   </div>
                 )}
-              </div>
-              
-              <div className="mt-auto pt-6 border-t border-white/5 text-[10px] text-slate-500 leading-tight">
-                Nota: Cada remoção consome 1 crédito da sua conta no remove.bg. Certifique-se de ter saldo em sua conta oficial.
               </div>
             </div>
           </div>

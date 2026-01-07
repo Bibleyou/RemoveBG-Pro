@@ -37,23 +37,30 @@ const App: React.FC = () => {
   const processImage = useCallback(async (type: 'remove' | 'replace', prompt?: string) => {
     if (!image.original) return;
 
-    setStatus({ isProcessing: true, status: type === 'remove' ? 'Removendo fundo...' : 'Gerando novo cenário...', error: null });
+    setStatus({ isProcessing: true, status: 'Removendo fundo com precisão...', error: null });
 
     try {
-      const gemini = new GeminiService();
+      const api = new GeminiService();
       let result = '';
 
       if (type === 'remove') {
-        result = await gemini.removeBackground(image.original, image.mimeType);
-      } else if (type === 'replace' && prompt) {
-        result = await gemini.replaceBackground(image.original, image.mimeType, prompt);
+        result = await api.removeBackground(image.original, image.mimeType);
+      } else if (type === 'replace') {
+        // Como o remove.bg é focado em remoção, avisamos que a substituição IA é limitada nesta versão
+        result = await api.removeBackground(image.original, image.mimeType);
       }
 
       setImage(prev => ({ ...prev, processed: result }));
-      setStatus({ isProcessing: false, status: 'Pronto!', error: null });
+      setStatus({ isProcessing: false, status: 'Fundo removido!', error: null });
     } catch (err: any) {
       console.error(err);
-      setStatus({ isProcessing: false, status: '', error: 'Ocorreu um erro ao processar a imagem. Verifique se o objeto está claro.' });
+      setStatus({ 
+        isProcessing: false, 
+        status: '', 
+        error: err.message.includes("403") 
+          ? "Sua chave de API do remove.bg parece inválida ou sem créditos." 
+          : "Erro ao processar. Verifique sua chave de API nas configurações da Vercel." 
+      });
     }
   }, [image]);
 
@@ -61,7 +68,7 @@ const App: React.FC = () => {
     if (!image.processed) return;
     const link = document.createElement('a');
     link.href = image.processed;
-    link.download = 'gemini-edit-result.png';
+    link.download = 'sem-fundo-removebg.png';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -74,16 +81,15 @@ const App: React.FC = () => {
       <main className="max-w-6xl mx-auto px-4">
         <section className="text-center mb-12">
           <h1 className="text-4xl md:text-6xl font-extrabold mb-4 leading-tight">
-            Remova o Fundo com <br />
-            <span className="gradient-text">Inteligência Artificial</span>
+            Remoção Profissional <br />
+            <span className="text-indigo-500">em Segundos</span>
           </h1>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            Utilize o poder do Gemini 2.5 para remover fundos ou criar cenários incríveis para suas fotos instantaneamente.
+            Utilizando a sua chave oficial do <strong>remove.bg</strong> para resultados com qualidade de estúdio.
           </p>
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Upload Area */}
           <div className="lg:col-span-7">
             <div className="glass rounded-3xl p-6 relative overflow-hidden min-h-[400px] flex flex-col">
               {!image.original ? (
@@ -94,50 +100,41 @@ const App: React.FC = () => {
                     onChange={handleFileUpload}
                     accept="image/*"
                   />
-                  <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mb-4">
-                    <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-medium mb-1">Carregue uma imagem</h3>
-                  <p className="text-slate-500 text-sm">Arraste e solte ou clique para selecionar</p>
+                  <h3 className="text-xl font-medium mb-1">Escolha sua foto</h3>
+                  <p className="text-slate-500 text-sm">Arraste aqui ou clique para buscar</p>
                 </div>
               ) : (
                 <div className="relative flex-1">
                   <img 
                     src={image.processed || image.original} 
                     alt="Preview" 
-                    className="w-full h-auto rounded-xl shadow-2xl max-h-[600px] object-contain bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:20px_20px]" 
+                    className="w-full h-auto rounded-xl shadow-2xl max-h-[600px] object-contain bg-[url('https://www.transparenttextures.com/patterns/checkerboard.png')] bg-repeat" 
                   />
                   
                   {status.isProcessing && (
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center text-center p-6 transition-all">
-                      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                      <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                       <p className="text-lg font-medium">{status.status}</p>
-                      <p className="text-sm text-slate-400 mt-2">Isso pode levar alguns segundos...</p>
                     </div>
-                  )}
-
-                  {image.processed && !status.isProcessing && (
-                    <button 
-                      onClick={() => setImage(prev => ({ ...prev, processed: null }))}
-                      className="absolute top-4 right-4 p-2 bg-slate-900/80 hover:bg-slate-800 text-white rounded-full transition-colors backdrop-blur-md"
-                      title="Restaurar Original"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    </button>
                   )}
                 </div>
               )}
 
               {image.original && (
-                <ImageActions 
-                  onRemoveBg={() => processImage('remove')} 
-                  onReplaceBg={(p) => processImage('replace', p)}
-                  disabled={status.isProcessing}
-                />
+                <div className="mt-6">
+                   <button
+                    onClick={() => processImage('remove')}
+                    disabled={status.isProcessing}
+                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-indigo-600 text-white rounded-2xl font-semibold hover:bg-indigo-500 transition-all disabled:opacity-50 shadow-lg shadow-indigo-600/20"
+                  >
+                    Remover Fundo Agora
+                  </button>
+                </div>
               )}
             </div>
             
@@ -151,52 +148,34 @@ const App: React.FC = () => {
             )}
           </div>
 
-          {/* Sidebar Tools */}
           <div className="lg:col-span-5 space-y-6">
             <div className="glass rounded-3xl p-6">
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-                Resultado Final
+                Resultado
               </h3>
               
-              <div className="aspect-video bg-slate-900/50 rounded-2xl border border-white/5 flex items-center justify-center overflow-hidden mb-6">
+              <div className="aspect-video bg-slate-900/50 rounded-2xl border border-white/5 flex items-center justify-center overflow-hidden mb-6 bg-[url('https://www.transparenttextures.com/patterns/checkerboard.png')]">
                 {image.processed ? (
                   <img src={image.processed} alt="Final" className="max-h-full object-contain" />
                 ) : (
-                  <span className="text-slate-600 text-sm">Aguardando processamento...</span>
+                  <span className="text-slate-600 text-sm italic">Aguardando...</span>
                 )}
               </div>
 
               <button
                 disabled={!image.processed || status.isProcessing}
                 onClick={downloadImage}
-                className="w-full py-4 bg-green-600 hover:bg-green-500 disabled:opacity-30 disabled:hover:bg-green-600 text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-600/20"
+                className="w-full py-4 bg-green-600 hover:bg-green-500 disabled:opacity-30 text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Baixar Imagem HD
+                Baixar Transparente (PNG)
               </button>
-            </div>
-
-            <div className="glass rounded-3xl p-6 bg-gradient-to-br from-blue-600/10 to-purple-600/10">
-              <h3 className="font-bold mb-2">Dica de Especialista</h3>
-              <p className="text-sm text-slate-400">
-                Para melhores resultados, utilize imagens com boa iluminação e onde o objeto principal esteja bem definido em relação ao fundo.
-              </p>
-              <div className="mt-4 flex gap-2">
-                <span className="text-[10px] px-2 py-1 bg-white/10 rounded-full uppercase tracking-wider font-bold">PRO</span>
-                <span className="text-[10px] px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full uppercase tracking-wider font-bold">AI POWERED</span>
-              </div>
             </div>
           </div>
         </div>
       </main>
 
       <footer className="fixed bottom-0 left-0 right-0 py-4 px-6 glass border-t border-white/5 text-center text-xs text-slate-500 z-50">
-        Desenvolvido com Gemini 2.5 API • 2024 GeminiEdit Pro
+        Powered by Remove.bg API • Conectado com sua chave de API
       </footer>
     </div>
   );

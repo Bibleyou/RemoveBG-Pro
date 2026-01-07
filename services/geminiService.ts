@@ -1,83 +1,54 @@
 
-import { GoogleGenAI } from "@google/genai";
-
 export class GeminiService {
-  private ai: GoogleGenAI;
+  private apiKey: string;
 
   constructor() {
-    // Em ambientes de build como Vercel, process.env.API_KEY é injetado.
-    // Garantimos que a inicialização siga o padrão exigido.
-    const apiKey = process.env.API_KEY;
+    // Usamos o mesmo nome de variável de ambiente para facilitar na Vercel
+    this.apiKey = process.env.API_KEY || '';
     
-    if (!apiKey) {
-      console.error("API_KEY não encontrada. Configure-a nas variáveis de ambiente da Vercel.");
+    if (!this.apiKey) {
+      console.error("API_KEY do remove.bg não encontrada.");
     }
-
-    this.ai = new GoogleGenAI({ apiKey: apiKey || '' });
   }
 
-  async removeBackground(base64Image: string, mimeType: string): Promise<string> {
+  async removeBackground(base64Image: string, _mimeType: string): Promise<string> {
     try {
-      const response = await this.ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: {
-          parts: [
-            {
-              inlineData: {
-                data: base64Image.split(',')[1],
-                mimeType: mimeType,
-              },
-            },
-            {
-              text: "Remova o fundo desta imagem. Retorne apenas a imagem processada mantendo a maior qualidade possível.",
-            },
-          ],
+      // O remove.bg espera o base64 puro ou um arquivo.
+      const base64Data = base64Image.split(',')[1];
+      
+      const formData = new FormData();
+      formData.append('image_base64', base64Data);
+      formData.append('size', 'auto');
+
+      const response = await fetch('https://api.remove.bg/v1.0/removebg', {
+        method: 'POST',
+        headers: {
+          'X-Api-Key': this.apiKey,
         },
+        body: formData,
       });
 
-      const candidate = response.candidates?.[0];
-      if (candidate?.content?.parts) {
-        for (const part of candidate.content.parts) {
-          if (part.inlineData) {
-            return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-          }
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.errors?.[0]?.title || "Erro ao remover fundo");
       }
-      throw new Error("Nenhuma imagem retornada pela IA.");
+
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
     } catch (error: any) {
-      if (error.message?.includes("API key not valid")) {
-        throw new Error("Erro de Configuração: Chave de API inválida na Vercel.");
-      }
-      throw error;
+      console.error("Erro na API remove.bg:", error);
+      throw new Error(error.message || "Falha na conexão com remove.bg");
     }
   }
 
-  async replaceBackground(base64Image: string, mimeType: string, prompt: string): Promise<string> {
-    const response = await this.ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              data: base64Image.split(',')[1],
-              mimeType: mimeType,
-            },
-          },
-          {
-            text: `Substitua o fundo desta imagem por: ${prompt}. Mantenha o foco e iluminação do objeto original.`,
-          },
-        ],
-      },
-    });
-
-    const candidate = response.candidates?.[0];
-    if (candidate?.content?.parts) {
-      for (const part of candidate.content.parts) {
-        if (part.inlineData) {
-          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        }
-      }
-    }
-    throw new Error("Falha ao gerar novo fundo.");
+  // O remove.bg não possui substituição por prompt de texto como o Gemini, 
+  // então vamos desativar ou simplificar esta função para não quebrar o App.tsx
+  async replaceBackground(base64Image: string, mimeType: string, _prompt: string): Promise<string> {
+    return this.removeBackground(base64Image, mimeType);
   }
 }

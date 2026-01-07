@@ -1,7 +1,6 @@
 
 import React, { useState, useCallback } from 'react';
 import Header from './components/Header';
-import ImageActions from './components/ImageActions';
 import { GeminiService } from './services/geminiService';
 import { ProcessingState, ImageData } from './types';
 
@@ -34,32 +33,25 @@ const App: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const processImage = useCallback(async (type: 'remove' | 'replace', prompt?: string) => {
+  const processImage = useCallback(async () => {
     if (!image.original) return;
 
-    setStatus({ isProcessing: true, status: 'Removendo fundo com precisão...', error: null });
+    setStatus({ isProcessing: true, status: 'Removendo fundo via Remove.bg...', error: null });
 
     try {
       const api = new GeminiService();
-      let result = '';
-
-      if (type === 'remove') {
-        result = await api.removeBackground(image.original, image.mimeType);
-      } else if (type === 'replace') {
-        // Como o remove.bg é focado em remoção, avisamos que a substituição IA é limitada nesta versão
-        result = await api.removeBackground(image.original, image.mimeType);
-      }
+      const result = await api.removeBackground(image.original, image.mimeType);
 
       setImage(prev => ({ ...prev, processed: result }));
-      setStatus({ isProcessing: false, status: 'Fundo removido!', error: null });
+      setStatus({ isProcessing: false, status: 'Pronto!', error: null });
     } catch (err: any) {
       console.error(err);
       setStatus({ 
         isProcessing: false, 
         status: '', 
         error: err.message.includes("403") 
-          ? "Sua chave de API do remove.bg parece inválida ou sem créditos." 
-          : "Erro ao processar. Verifique sua chave de API nas configurações da Vercel." 
+          ? "Chave de API Inválida. Verifique se colou a chave correta nas variáveis de ambiente da Vercel como API_KEY." 
+          : "Erro na API: " + err.message
       });
     }
   }, [image]);
@@ -68,7 +60,7 @@ const App: React.FC = () => {
     if (!image.processed) return;
     const link = document.createElement('a');
     link.href = image.processed;
-    link.download = 'sem-fundo-removebg.png';
+    link.download = 'imagem-sem-fundo.png';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -81,102 +73,113 @@ const App: React.FC = () => {
       <main className="max-w-6xl mx-auto px-4">
         <section className="text-center mb-12">
           <h1 className="text-4xl md:text-6xl font-extrabold mb-4 leading-tight">
-            Remoção Profissional <br />
-            <span className="text-indigo-500">em Segundos</span>
+            Remover Fundo <br />
+            <span className="text-indigo-500 font-black">PROFISSIONAL</span>
           </h1>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            Utilizando a sua chave oficial do <strong>remove.bg</strong> para resultados com qualidade de estúdio.
+            Alta precisão para fotos de produtos, pessoas e objetos usando sua chave do <strong>remove.bg</strong>.
           </p>
         </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <div className="lg:col-span-7">
-            <div className="glass rounded-3xl p-6 relative overflow-hidden min-h-[400px] flex flex-col">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-8">
+            <div className="glass rounded-3xl p-6 min-h-[450px] flex flex-col">
               {!image.original ? (
-                <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-2xl drop-zone cursor-pointer relative py-20 px-4">
+                <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-2xl drop-zone cursor-pointer relative py-20">
                   <input
                     type="file"
                     className="absolute inset-0 opacity-0 cursor-pointer"
                     onChange={handleFileUpload}
                     accept="image/*"
                   />
-                  <div className="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mb-4">
-                    <svg className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  <div className="w-20 h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mb-6">
+                    <svg className="w-10 h-10 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-medium mb-1">Escolha sua foto</h3>
-                  <p className="text-slate-500 text-sm">Arraste aqui ou clique para buscar</p>
+                  <h3 className="text-2xl font-bold mb-2">Enviar Imagem</h3>
+                  <p className="text-slate-500 text-base">Clique aqui ou arraste o arquivo</p>
                 </div>
               ) : (
-                <div className="relative flex-1">
-                  <img 
-                    src={image.processed || image.original} 
-                    alt="Preview" 
-                    className="w-full h-auto rounded-xl shadow-2xl max-h-[600px] object-contain bg-[url('https://www.transparenttextures.com/patterns/checkerboard.png')] bg-repeat" 
-                  />
+                <div className="relative flex-1 flex flex-col">
+                  <div className="flex-1 relative bg-[url('https://www.transparenttextures.com/patterns/checkerboard.png')] bg-repeat rounded-xl overflow-hidden shadow-inner border border-white/5">
+                    <img 
+                      src={image.processed || image.original} 
+                      alt="Preview" 
+                      className="absolute inset-0 w-full h-full object-contain" 
+                    />
+                    
+                    {status.isProcessing && (
+                      <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 z-10">
+                        <div className="w-14 h-14 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <p className="text-xl font-bold text-white animate-pulse">{status.status}</p>
+                      </div>
+                    )}
+                  </div>
                   
-                  {status.isProcessing && (
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center text-center p-6 transition-all">
-                      <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                      <p className="text-lg font-medium">{status.status}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {image.original && (
-                <div className="mt-6">
-                   <button
-                    onClick={() => processImage('remove')}
-                    disabled={status.isProcessing}
-                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-indigo-600 text-white rounded-2xl font-semibold hover:bg-indigo-500 transition-all disabled:opacity-50 shadow-lg shadow-indigo-600/20"
-                  >
-                    Remover Fundo Agora
-                  </button>
+                  <div className="mt-6 flex gap-4">
+                    <button
+                      onClick={() => setImage({ original: null, processed: null, mimeType: '' })}
+                      className="px-6 py-4 bg-slate-800 text-white rounded-2xl font-bold hover:bg-slate-700 transition-all"
+                    >
+                      Trocar Foto
+                    </button>
+                    {!image.processed && (
+                      <button
+                        onClick={processImage}
+                        disabled={status.isProcessing}
+                        className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20 disabled:opacity-50"
+                      >
+                        REMOVER FUNDO AGORA
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
-            
-            {status.error && (
-              <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl flex items-center gap-3">
-                <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                <p className="text-sm">{status.error}</p>
-              </div>
-            )}
           </div>
 
-          <div className="lg:col-span-5 space-y-6">
-            <div className="glass rounded-3xl p-6">
-              <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                Resultado
+          <div className="lg:col-span-4">
+            <div className="glass rounded-3xl p-6 h-full flex flex-col">
+              <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                <span className="w-2 h-8 bg-indigo-500 rounded-full"></span>
+                Ações
               </h3>
-              
-              <div className="aspect-video bg-slate-900/50 rounded-2xl border border-white/5 flex items-center justify-center overflow-hidden mb-6 bg-[url('https://www.transparenttextures.com/patterns/checkerboard.png')]">
-                {image.processed ? (
-                  <img src={image.processed} alt="Final" className="max-h-full object-contain" />
-                ) : (
-                  <span className="text-slate-600 text-sm italic">Aguardando...</span>
+
+              <div className="flex-1 space-y-6">
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                  <p className="text-sm text-slate-400 mb-2 font-medium uppercase tracking-wider">Status da API</p>
+                  <div className="flex items-center gap-2 text-green-400 font-bold">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-ping"></div>
+                    Conectado ao Remove.bg
+                  </div>
+                </div>
+
+                <button
+                  disabled={!image.processed || status.isProcessing}
+                  onClick={downloadImage}
+                  className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-20 text-white font-black text-lg rounded-2xl flex items-center justify-center gap-3 transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-900/20"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0L8 8m4-4v12" />
+                  </svg>
+                  BAIXAR PNG
+                </button>
+
+                {status.error && (
+                  <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-2xl text-sm leading-relaxed">
+                    <strong>Erro:</strong> {status.error}
+                  </div>
                 )}
               </div>
-
-              <button
-                disabled={!image.processed || status.isProcessing}
-                onClick={downloadImage}
-                className="w-full py-4 bg-green-600 hover:bg-green-500 disabled:opacity-30 text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg"
-              >
-                Baixar Transparente (PNG)
-              </button>
+              
+              <div className="mt-auto pt-6 border-t border-white/5 text-[10px] text-slate-500 leading-tight">
+                Nota: Cada remoção consome 1 crédito da sua conta no remove.bg. Certifique-se de ter saldo em sua conta oficial.
+              </div>
             </div>
           </div>
         </div>
       </main>
-
-      <footer className="fixed bottom-0 left-0 right-0 py-4 px-6 glass border-t border-white/5 text-center text-xs text-slate-500 z-50">
-        Powered by Remove.bg API • Conectado com sua chave de API
-      </footer>
     </div>
   );
 };

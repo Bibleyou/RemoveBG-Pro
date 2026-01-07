@@ -3,13 +3,13 @@ export class RemoveBGService {
   private apiKey: string;
 
   constructor() {
-    // Busca a chave configurada na Vercel (API_KEY)
-    this.apiKey = process.env.API_KEY || '';
+    // Pegamos a chave e removemos qualquer espaço em branco acidental no início ou fim
+    this.apiKey = (process.env.API_KEY || '').trim();
   }
 
   async removeBackground(base64Image: string): Promise<string> {
     if (!this.apiKey) {
-      throw new Error("API_KEY não configurada nas variáveis de ambiente.");
+      throw new Error("CONFIG_MISSING");
     }
 
     try {
@@ -27,9 +27,13 @@ export class RemoveBGService {
         body: formData,
       });
 
+      if (response.status === 403 || response.status === 401) {
+        throw new Error("API_KEY_INVALID");
+      }
+
       if (!response.ok) {
         const errorData = await response.json();
-        const msg = errorData.errors?.[0]?.title || "Erro ao remover fundo";
+        const msg = errorData.errors?.[0]?.title || "Erro desconhecido";
         throw new Error(msg);
       }
 
@@ -41,8 +45,8 @@ export class RemoveBGService {
         reader.readAsDataURL(blob);
       });
     } catch (error: any) {
-      console.error("Erro na API remove.bg:", error);
-      throw new Error(error.message || "Falha na conexão com remove.bg");
+      console.error("Erro na API remove.bg:", error.message);
+      throw error;
     }
   }
 }

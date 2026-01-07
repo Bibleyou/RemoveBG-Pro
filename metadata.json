@@ -1,0 +1,7 @@
+{
+  "name": "Gemini RemoveBG Pro",
+  "description": "A high-end background removal and replacement tool powered by Gemini 2.5 Flash, featuring AI-driven editing and high-quality image generation.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
